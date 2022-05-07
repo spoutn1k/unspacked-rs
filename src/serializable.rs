@@ -44,12 +44,50 @@ impl<L: Serializable<String>, P: Serializable<String>, S: Serializable<String>> 
     }
 }
 
+macro_rules! substitution {
+    // I'm sorry
+    ($colon:expr, $prefix:expr, $suffix:expr, $symbol:expr) => {
+        match ($colon, $prefix, $suffix) {
+            (true, ast::Parameter::Var(v), Some(value)) => format!(
+                "${{{}:{}{}}}",
+                v.into_string(),
+                $symbol,
+                value.into_string()
+            ),
+            (true, ast::Parameter::Var(v), None) => {
+                format!("${{{}:{}}}", v.into_string(), $symbol)
+            }
+            (true, v, Some(value)) => format!(
+                "${{{}:{}{}}}",
+                v.into_string(),
+                $symbol,
+                value.into_string()
+            ),
+            (true, v, None) => {
+                format!("${{{}:{}}}", v.into_string(), $symbol)
+            }
+            (false, ast::Parameter::Var(v), Some(value)) => {
+                format!("${{{}{}{}}}", v.into_string(), $symbol, value.into_string())
+            }
+            (false, ast::Parameter::Var(v), None) => {
+                format!("${{{}{}}}", v.into_string(), $symbol)
+            }
+            (false, v, Some(value)) => {
+                format!("${{{}{}{}}}", v.into_string(), $symbol, value.into_string())
+            }
+            (false, v, None) => {
+                format!("${{{}{}}}", v.into_string(), $symbol)
+            }
+        }
+    };
+}
+
 impl<
         P: Serializable<String>,
         W: Serializable<String>,
         C: Serializable<String>,
         A: Serializable<String>,
-    > Serializable<String> for ast::ParameterSubstitution<P, W, C, A>
+    > Serializable<String> for ast::ParameterSubstitution<ast::Parameter<P>, W, C, A>
 {
     fn into_string(&self) -> String {
         match self {
@@ -62,25 +100,58 @@ impl<
 
                 format!("$({})", cmd)
             }
-            ast::ParameterSubstitution::Len(value) => format!("${{#{}}}", value.into_string()),
+            ast::ParameterSubstitution::Len(ast::Parameter::Var(value)) => {
+                format!("${{#{}}}", value.into_string())
+            }
+            ast::ParameterSubstitution::Len(value) => {
+                format!("${{#{}}}", value.into_string())
+            }
             ast::ParameterSubstitution::Arith(option) => match option {
                 Some(value) => format!("$(({}))", value.into_string()),
                 None => String::from("$(())"),
             },
-            _ => String::from("UNSUPPORTED"),
+            ast::ParameterSubstitution::Default(colon, prefix, suffix) => {
+                substitution!(colon, prefix, suffix, "-")
+            }
+            ast::ParameterSubstitution::Assign(colon, prefix, suffix) => {
+                substitution!(colon, prefix, suffix, "=")
+            }
+            ast::ParameterSubstitution::Error(colon, prefix, suffix) => {
+                substitution!(colon, prefix, suffix, "?")
+            }
+            ast::ParameterSubstitution::Alternative(colon, prefix, suffix) => {
+                substitution!(colon, prefix, suffix, "+")
+            }
+            ast::ParameterSubstitution::RemoveSmallestPrefix(prefix, suffix) => {
+                substitution!(false, prefix, suffix, "%")
+            }
+            ast::ParameterSubstitution::RemoveLargestPrefix(prefix, suffix) => {
+                substitution!(false, prefix, suffix, "%%")
+            }
+            ast::ParameterSubstitution::RemoveSmallestSuffix(prefix, suffix) => {
+                substitution!(false, prefix, suffix, "#")
+            }
+            ast::ParameterSubstitution::RemoveLargestSuffix(prefix, suffix) => {
+                substitution!(false, prefix, suffix, "##")
+            }
         }
     }
 }
 
 impl<S: Serializable<String>> Serializable<String> for ast::Arithmetic<S> {
     fn into_string(&self) -> String {
-        String::from("UNSUPPORTED")
+        match self {
+            _ => String::from("UNSUPPORTED"),
+        }
     }
 }
 
 impl<S: Serializable<String>> Serializable<String> for ast::AndOr<S> {
     fn into_string(&self) -> String {
-        String::from("UNSUPPORTED")
+        match self {
+            ast::AndOr::And(dlc) => format!("&& {}", dlc.into_string()),
+            ast::AndOr::Or(dlc) => format!("|| {}", dlc.into_string()),
+        }
     }
 }
 
@@ -125,7 +196,7 @@ impl<L: Serializable<String>, W: Serializable<String>> Serializable<String> for 
                     .join("");
                 format!("\"{}\"", contents)
             }
-            _ => String::from("UNSUPPORTED"),
+            ast::Word::SingleQuoted(w) => w.into_string(),
         }
     }
 }
@@ -235,10 +306,7 @@ impl<T: Serializable<String>> Serializable<String> for ast::AndOrList<T> {
         let rest = self
             .rest
             .iter()
-            .map(|cmd| match cmd {
-                ast::AndOr::And(dlc) => format!("&& {}", dlc.into_string()),
-                ast::AndOr::Or(dlc) => format!("|| {}", dlc.into_string()),
-            })
+            .map(|cmd| cmd.into_string())
             .collect::<Vec<String>>()
             .join(" ");
 

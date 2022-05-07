@@ -25,11 +25,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Parse our input!
     for line in parser {
-        if let Ok(cmd) = line {
-            if is_spack_top_level(&cmd) {
-                //println!("{:?}", ast);
-                println!("{}", cmd.into_string());
-            }
+        if let Ok(ast) = line {
+            println!("{:?}", ast);
+            println!("{}", ast.into_string());
+            if is_spack_top_level(&ast) {}
         }
     }
 
