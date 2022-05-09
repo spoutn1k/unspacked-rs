@@ -1,9 +1,10 @@
 #![allow(dead_code)]
 
 mod serializable;
+mod transform;
 
 use crate::serializable::Serializable;
-use conch_parser::ast;
+use crate::transform::{InsertVersion, StartsWith};
 use conch_parser::lexer::Lexer;
 use conch_parser::parse::DefaultParser;
 use log::*;
@@ -25,70 +26,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Parse our input!
     for line in parser {
-        if let Ok(ast) = line {
+        if let Ok(mut ast) = line {
+            if ast.starts_with("spack") {
+                ast.insert_v();
+            }
             println!("{:?}", ast);
             println!("{}", ast.into_string());
-            if is_spack_top_level(&ast) {}
         }
     }
 
     Ok(())
-}
-
-fn is_spack_top_level(cmd: &ast::TopLevelCommand<String>) -> bool {
-    match &cmd.0 {
-        ast::Command::Job(list) | ast::Command::List(list) => is_spack_listable(&list.first),
-    }
-}
-
-fn is_spack_listable(cmd: &ast::DefaultListableCommand) -> bool {
-    match cmd {
-        ast::ListableCommand::Single(cmd) => is_spack_pipeable(cmd),
-        ast::ListableCommand::Pipe(_, cmds) => cmds
-            .into_iter()
-            .map(is_spack_pipeable)
-            .fold(true, |acc, spk| acc || spk),
-    }
-}
-
-fn is_spack_pipeable(cmd: &ast::DefaultPipeableCommand) -> bool {
-    match cmd {
-        ast::PipeableCommand::Simple(cmd) => is_spack_simple(cmd),
-        ast::PipeableCommand::Compound(_) => false,
-        ast::PipeableCommand::FunctionDef(_, _) => false,
-    }
-}
-
-fn is_spack_simple(cmd: &ast::DefaultSimpleCommand) -> bool {
-    let spack_refs = cmd
-        .redirects_or_cmd_words
-        .iter()
-        .filter_map(|redirect_or_word| match redirect_or_word {
-            ast::RedirectOrCmdWord::CmdWord(w) => Some(&w.0),
-            ast::RedirectOrCmdWord::Redirect(_) => None,
-        })
-        .filter_map(|word| match word {
-            ast::ComplexWord::Single(w) => Some(w),
-            // We're going to ignore concatenated words for simplicity here
-            ast::ComplexWord::Concat(_) => None,
-        })
-        .filter_map(|word| match word {
-            ast::Word::SingleQuoted(w) => Some(w),
-            ast::Word::Simple(w) => get_simple_word_as_string(w),
-            ast::Word::DoubleQuoted(words) if words.len() == 1 => {
-                get_simple_word_as_string(&words[0])
-            }
-            ast::Word::DoubleQuoted(_) => None, // Ignore all multi-word double quoted strings
-        })
-        .filter(|w| *w == "spack")
-        .count();
-
-    return spack_refs == 1;
-}
-
-fn get_simple_word_as_string(word: &ast::DefaultSimpleWord) -> Option<&String> {
-    match word {
-        ast::SimpleWord::Literal(w) => Some(w),
-        _ => None, // Ignoring substitutions and others for simplicity here
-    }
 }
