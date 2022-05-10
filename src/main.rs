@@ -14,6 +14,15 @@ use simplelog::{Config, LevelFilter, SimpleLogger};
 use std::collections::HashMap;
 use std::{env, fs};
 
+static COMPILE_FUNCTION: &str = "compile() { cat << EOF
+load_$HASH() {
+# Compiled version of '$@'
+$($@)
+}
+EOF
+eval $(echo \"$@\" | sed -e 's:--sh::g')
+}";
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     SimpleLogger::init(LevelFilter::Info, Config::default()).unwrap();
 
@@ -38,13 +47,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         command_word!(w) if w == "--list" => true,
                         _ => false,
                     }) {
+                        cmd.redirects_or_cmd_words = vec![];
                     } else {
-                        let spack_call = cmd.clone();
+                        let mut spack_call = cmd.clone();
 
                         let mut hasher = Sha256::new();
                         hasher.update(spack_call.into_string());
                         let result: String = format!("load_{:x}", hasher.finalize());
 
+                        spack_call.redirects_or_env_vars = vec![];
                         spack_calls.insert(String::from(&result), spack_call.clone());
 
                         cmd.redirects_or_cmd_words = vec![command_word!(result)];
@@ -57,6 +68,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
         .collect::<Vec<ast::TopLevelCommand<String>>>();
 
+    println!(
+        "{}\nread -r -d '' SCRIPT <<'EOF'\n{}\nEOF",
+        COMPILE_FUNCTION,
+        transformed
+            .iter()
+            .map(|ast| ast.into_string())
+            .collect::<Vec<String>>()
+            .join("\n")
+    );
+
     for (hash, mut call) in spack_calls {
         if let Some(index) = call.redirects_or_cmd_words.iter().position(|x| match x {
             command_word!(w) if w == "load" => true,
@@ -68,14 +89,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    println!(
-        "SCRIPT=\"\"\"{}\"\"\"",
-        transformed
-            .iter()
-            .map(|ast| ast.into_string())
-            .collect::<Vec<String>>()
-            .join("\\n")
-    );
+    println!("echo -e \"$SCRIPT\"");
 
     Ok(())
 }
