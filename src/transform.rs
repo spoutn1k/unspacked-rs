@@ -1,5 +1,6 @@
 #![allow(unused_imports)]
 use conch_parser::ast;
+use regex::Regex;
 
 macro_rules! command_word {
     ($string:ident) => {
@@ -58,5 +59,21 @@ impl ExtractCommand for ast::TopLevelCommand<String> {
             ast::Command::Job(l) => l.extract(value),
             ast::Command::List(l) => l.extract(value),
         }
+    }
+}
+
+pub trait FindCommandWord {
+    // Return a SimpleCommand if it starts with the given string
+    fn position(&self, value: &str) -> Option<usize>;
+}
+
+impl FindCommandWord for ast::DefaultSimpleCommand {
+    // Return a SimpleCommand if it starts with the given string
+    fn position(&self, value: &str) -> Option<usize> {
+        let re = Regex::new(value).unwrap();
+        self.redirects_or_cmd_words.iter().position(|x| match x {
+            command_word!(w) if re.is_match(w) => true,
+            _ => false,
+        })
     }
 }
