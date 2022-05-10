@@ -11,7 +11,6 @@ use conch_parser::parse::DefaultParser;
 use log::*;
 use sha2::{Digest, Sha256};
 use simplelog::{Config, LevelFilter, SimpleLogger};
-use std::collections::HashMap;
 use std::{env, fs};
 
 static COMPILE_FUNCTION: &str = "compile() { cat << EOF
@@ -35,7 +34,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize our token lexer and shell parser with the first argument
     let lex = Lexer::new(contents.chars());
     let parser = DefaultParser::new(lex);
-    let mut spack_calls = HashMap::new();
+    let mut spack_calls = Vec::<(String, ast::DefaultSimpleCommand)>::new();
 
     // Parse our input!
     let transformed = parser
@@ -56,7 +55,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let result: String = format!("load_{:x}", hasher.finalize());
 
                         spack_call.redirects_or_env_vars = vec![];
-                        spack_calls.insert(String::from(&result), spack_call.clone());
+                        spack_calls.push((String::from(&result), spack_call.clone()));
 
                         cmd.redirects_or_cmd_words = vec![command_word!(result)];
                     }
