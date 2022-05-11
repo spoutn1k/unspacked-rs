@@ -71,6 +71,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
         .collect::<Vec<ast::TopLevelCommand<String>>>();
 
+    let compile_directives = spack_calls
+        .iter_mut()
+        .filter_map(|tuple| {
+            if let Some(index) = tuple.1.position("load") {
+                tuple
+                    .1
+                    .redirects_or_cmd_words
+                    .insert(index + 1, command_word!("--sh"));
+                Some(format!(
+                    "HASH={} compile {}",
+                    tuple.0,
+                    tuple.1.into_string()
+                ))
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<String>>()
+        .join("\n");
+
     println!(
         include_str!("template.sh.fmt"),
         spack_source.into_string(),
@@ -78,18 +98,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .iter()
             .map(|ast| ast.into_string())
             .collect::<Vec<String>>()
-            .join("\n")
+            .join("\n"),
+        compile_directives
     );
-
-    for (hash, mut call) in spack_calls {
-        if let Some(index) = call.position("load") {
-            call.redirects_or_cmd_words
-                .insert(index + 1, command_word!("--sh"));
-            println!("HASH={} compile {}\n", hash, call.into_string());
-        }
-    }
-
-    println!("echo -e \"$SCRIPT\"");
 
     Ok(())
 }
