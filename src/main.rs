@@ -13,16 +13,6 @@ use sha2::{Digest, Sha256};
 use simplelog::{Config, LevelFilter, SimpleLogger};
 use std::{env, fs};
 
-static COMPILE_FUNCTION: &str = "compile() { cat << EOF
-$HASH() {
-# Compiled version of '$@'
-$($@)
-}
-
-EOF
-eval $(echo \"$@\" | sed -e 's:--sh::g')
-}";
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     SimpleLogger::init(LevelFilter::Info, Config::default()).unwrap();
 
@@ -82,9 +72,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .collect::<Vec<ast::TopLevelCommand<String>>>();
 
     println!(
-        "{}\n\n{}\n\nread -r -d '' SCRIPT <<'EOF'\n{}\nEOF\n",
+        include_str!("template.sh.fmt"),
         spack_source.into_string(),
-        COMPILE_FUNCTION,
         transformed
             .iter()
             .map(|ast| ast.into_string())

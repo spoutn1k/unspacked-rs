@@ -1,0 +1,20 @@
+{}
+
+if [ $? -ne 0 -o -z $(which spack) ] ; then
+    echo "spack not found, aborting script creation" >&2
+    exit 1
+fi
+
+compile() {{ cat << EOF
+$HASH() {{
+# Compiled version of '$@'
+$($@)
+}}
+
+EOF
+eval $(echo \"$@\" | sed -e 's:--sh::g')
+}}";
+
+read -r -d '' SCRIPT <<'EOF'
+{}
+EOF
