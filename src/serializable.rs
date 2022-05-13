@@ -342,6 +342,14 @@ impl<T: Serializable<String>> Serializable<String> for ast::Redirect<T> {
                 Some(value) => format!("{}>| {}", value, rest.into_string()),
                 None => format!(">| {}", rest.into_string()),
             },
+            ast::Redirect::DupRead(fd_option, rest) => match fd_option {
+                Some(value) => format!("{}<& {}", value, rest.into_string()),
+                None => format!("<& {}", rest.into_string()),
+            },
+            ast::Redirect::DupWrite(fd_option, rest) => match fd_option {
+                Some(value) => format!("{}>& {}", value, rest.into_string()),
+                None => format!(">& {}", rest.into_string()),
+            },
             _ => String::from("UNSUPPORTED"),
         }
     }
