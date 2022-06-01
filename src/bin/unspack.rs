@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 extern crate unspacklib;
 
 use conch_parser::ast;
@@ -8,6 +6,7 @@ use conch_parser::parse::DefaultParser;
 use log::*;
 use sha2::{Digest, Sha256};
 use simplelog::{Config, LevelFilter, SimpleLogger};
+use std::process::exit;
 use std::{env, fs};
 use unspacklib::serializable::Serializable;
 use unspacklib::{
@@ -15,50 +14,44 @@ use unspacklib::{
     transform::{ExtractCommand, FindCommandWord},
 };
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    SimpleLogger::init(LevelFilter::Info, Config::default()).unwrap();
-
-    let args = env::args().collect::<Vec<String>>();
-    let filename = &args[1];
-
-    debug!("Reading file: {}", filename);
-    let contents = fs::read_to_string(filename).expect("Error reading file");
-
+fn filter_parser(
+    contents: String,
+    spack_calls: &mut Vec<(String, ast::DefaultSimpleCommand)>,
+    spack_source: &mut ast::DefaultSimpleCommand,
+) -> Vec<ast::TopLevelCommand<String>> {
     // Initialize our token lexer and shell parser with the first argument
     let lex = Lexer::new(contents.chars());
     let parser = DefaultParser::new(lex);
-    let mut spack_source: ast::DefaultSimpleCommand = ast::DefaultSimpleCommand {
-        redirects_or_env_vars: vec![],
-        redirects_or_cmd_words: vec![],
-    };
-    let mut spack_calls = Vec::new();
 
-    // Parse our input!
-    let transformed = parser
+    parser
         .into_iter()
         .filter_map(|line| {
             if let Ok(mut ast) = line {
                 let mut export: bool = true;
 
                 if let Some(cmd) = ast.extract(".") {
+                    // Here we look for a spack setup source script
                     if cmd.position(".*setup-env.sh").is_some() {
-                        spack_source = cmd.clone();
+                        *spack_source = cmd.clone();
                         export = false;
                     }
                 } else if let Some(cmd) = ast.extract("spack") {
-                    if let Some(_) = cmd.position("--list") {
-                        export = false;
-                    } else {
-                        let mut spack_call = cmd.clone();
+                    export = false;
+                    // Next we match lines beginning with spack load and no list
+                    if let Some(_) = cmd.position("load") {
+                        if let None = cmd.position("--list") {
+                            let mut spack_call = cmd.clone();
 
-                        let mut hasher = Sha256::new();
-                        hasher.update(spack_call.into_string());
-                        let result: String = format!("load_{:x}", hasher.finalize());
+                            let mut hasher = Sha256::new();
+                            hasher.update(spack_call.into_string());
+                            let result: String = format!("load_{:x}", hasher.finalize());
 
-                        spack_call.redirects_or_env_vars = vec![];
-                        spack_calls.push((String::from(&result), spack_call.clone()));
+                            spack_call.redirects_or_env_vars = vec![];
+                            spack_calls.push((String::from(&result), spack_call.clone()));
 
-                        cmd.redirects_or_cmd_words = vec![command_word!(result)];
+                            cmd.redirects_or_cmd_words = vec![command_word!(result)];
+                            export = true;
+                        }
                     }
                 }
 
@@ -71,7 +64,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 None
             }
         })
-        .collect::<Vec<ast::TopLevelCommand<String>>>();
+        .collect()
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    SimpleLogger::init(LevelFilter::Info, Config::default()).unwrap();
+
+    let args = env::args().collect::<Vec<String>>();
+
+    if args.len() < 2 {
+        eprintln!("Usage: {} <spacked script>", &args[0]);
+        exit(1);
+    }
+
+    let filename = &args[1];
+
+    debug!("Reading file: {}", filename);
+    let contents = fs::read_to_string(filename).expect("Error reading file");
+
+    // Those will hold information about the spack calls found in the script
+    let mut spack_source: ast::DefaultSimpleCommand = ast::DefaultSimpleCommand {
+        redirects_or_env_vars: vec![],
+        redirects_or_cmd_words: vec![],
+    };
+    let mut spack_calls = Vec::new();
+
+    // Parse our input!
+    let transformed = filter_parser(contents, &mut spack_calls, &mut spack_source);
 
     let compile_directives = spack_calls
         .iter_mut()
