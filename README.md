@@ -44,7 +44,7 @@ load_9eed1b0e789b80782838c7f85171514ff2070e49f9db023fe402d0bb63c3bfe7
 load_dc9bc243e421ca740f39ba3dd705f5298f1c20490a0ec9bb59e406b81d1f7181
 echo "Done !"
 ```
-Takes less than a hundredth of one.
+Takes less than a hundredth of one, on the same machine.
 
 ```
 $ time source ~/spacked.sh 
@@ -57,7 +57,7 @@ real	0m11.907s
 user	0m11.372s
 sys	0m0.452s
 $ spack unload
-$ time source ~/final.sh 
+$ time source ~/unspacked.sh 
 Loading packages ...
 Done !
 
@@ -69,11 +69,20 @@ $ spack load --list
 [...]
 ```
 
+On a single system where you load spack once this is just a few seconds, but when working with spack in temporary environments, having to repeat the load calls leads to a lot of wasted time.
+
 ## How ?
 
-This crate makes use of the `conch_parser` crate to interpret `shell` scripts, extract `spack` references, then use the `spack load [--sh|--csh|--fish]` capabilities to translate calls. The output is an intermediate script that can then be run in the `spack` environment, to create the final, `unspacked` version of the original script.
+This crate makes use of the `conch_parser` crate to interpret `shell` scripts, extract `spack` references, then use the `spack load [--sh|--csh|--fish]` capabilities to translate calls. The output is an self-modifying script that can then be run in the `spack` environment, to create the final, `unspacked` version of the original script.
 
 ```
-$ unspack spacked.sh > tmp.sh
-$ bash tmp.sh > unspacked.sh
+$ unspack spacked.sh > unspacked.sh
+$ bash unspacked.sh
 ```
+
+The generated script can also be sourced, and will make the requested changes to the spack environment in addition to modifying itself.
+
+# Disclaimer
+
+- This will only work for `spack load` calls, and targets initialization scripts with little `spack` logic involved.
+- The resulting scripts are also extremely single minded. They will overwrite whatever spack environment you have with what they were designed to do.
