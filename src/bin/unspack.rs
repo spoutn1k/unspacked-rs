@@ -14,6 +14,8 @@ use unspacklib::{
     transform::{ExtractCommand, FindCommandWord},
 };
 
+static COMPILE_FUNC_NAME: &str = "__unspacked_rs_compile";
+
 fn filter_parser(
     contents: String,
     spack_calls: &mut Vec<(String, ast::DefaultSimpleCommand)>,
@@ -101,8 +103,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .redirects_or_cmd_words
                     .insert(index + 1, command_word!("--sh"));
                 Some(format!(
-                    "HASH={} compile {}",
+                    "HASH={} {} {}",
                     tuple.0,
+                    COMPILE_FUNC_NAME,
                     tuple.1.into_string()
                 ))
             } else {
@@ -115,6 +118,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!(
         include_str!("template.sh.fmt"),
         spack_source.into_string(),
+        COMPILE_FUNC_NAME,
         transformed
             .iter()
             .map(|ast| ast.into_string())

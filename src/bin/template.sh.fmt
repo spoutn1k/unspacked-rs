@@ -31,9 +31,9 @@ BUFFER=${{BUFFER:=.unspacked.sh.tmp}}
 THIS=${{BASH_SOURCE[0]}}
 
 # The template of load_fff functions
-compile() {{ cat <<- EOF >> $BUFFER
+{}() {{ cat <<- EOF >> $BUFFER
 	$HASH() {{
-	# Compiled version of '$@'
+	# Output of '$@'
 	$($@)
 	}}
 
