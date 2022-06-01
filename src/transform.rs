@@ -2,6 +2,7 @@
 use conch_parser::ast;
 use regex::Regex;
 
+#[macro_export]
 macro_rules! command_word {
     ($string:ident) => {
         ast::RedirectOrCmdWord::CmdWord(ast::TopLevelWord(ast::ComplexWord::Single(
@@ -15,8 +16,6 @@ macro_rules! command_word {
         )))
     };
 }
-
-pub(crate) use command_word;
 
 pub trait ExtractCommand {
     // Return a SimpleCommand if it starts with the given string

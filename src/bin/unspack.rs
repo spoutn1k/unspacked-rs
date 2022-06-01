@@ -1,10 +1,7 @@
 #![allow(dead_code)]
 
-mod serializable;
-mod transform;
+extern crate unspacklib;
 
-use crate::serializable::Serializable;
-use crate::transform::{command_word, ExtractCommand, FindCommandWord};
 use conch_parser::ast;
 use conch_parser::lexer::Lexer;
 use conch_parser::parse::DefaultParser;
@@ -12,6 +9,11 @@ use log::*;
 use sha2::{Digest, Sha256};
 use simplelog::{Config, LevelFilter, SimpleLogger};
 use std::{env, fs};
+use unspacklib::serializable::Serializable;
+use unspacklib::{
+    command_word,
+    transform::{ExtractCommand, FindCommandWord},
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     SimpleLogger::init(LevelFilter::Info, Config::default()).unwrap();
