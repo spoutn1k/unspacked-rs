@@ -385,3 +385,55 @@ impl<B: Serializable<String>> Serializable<String> for Box<B> {
         (**self).into_string()
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_serialize_string() {
+        assert_eq!(String::from("test").into_string(), String::from("test"));
+    }
+
+    #[test]
+    fn test_serialize_parameter() {
+        let positional = 1;
+
+        assert_eq!(
+            ast::Parameter::<String>::At.into_string(),
+            String::from("$@")
+        );
+        assert_eq!(
+            ast::Parameter::<String>::Star.into_string(),
+            String::from("$*")
+        );
+        assert_eq!(
+            ast::Parameter::<String>::Question.into_string(),
+            String::from("$?")
+        );
+        assert_eq!(
+            ast::Parameter::<String>::Pound.into_string(),
+            String::from("$#")
+        );
+        assert_eq!(
+            ast::Parameter::<String>::Dash.into_string(),
+            String::from("$-")
+        );
+        assert_eq!(
+            ast::Parameter::<String>::Dollar.into_string(),
+            String::from("$$")
+        );
+        assert_eq!(
+            ast::Parameter::<String>::Bang.into_string(),
+            String::from("$!")
+        );
+        assert_eq!(
+            ast::Parameter::<String>::Positional(positional).into_string(),
+            format!("${}", positional)
+        );
+        assert_eq!(
+            ast::Parameter::<String>::Var(String::from("test")).into_string(),
+            String::from("$test")
+        );
+    }
+}

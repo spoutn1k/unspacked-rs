@@ -84,11 +84,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     debug!("Reading file: {}", filename);
     let contents = fs::read_to_string(filename).expect("Error reading file");
 
-    // Those will hold information about the spack calls found in the script
+    // This will contain the spack setup source call
     let mut spack_source: ast::DefaultSimpleCommand = ast::DefaultSimpleCommand {
         redirects_or_env_vars: vec![],
         redirects_or_cmd_words: vec![],
     };
+    // This will hold information about the spack calls found in the script
     let mut spack_calls = Vec::new();
 
     // Parse our input!
