@@ -212,8 +212,65 @@ impl<V: Serializable<String>, W: Serializable<String>, C: Serializable<String>> 
                 let body = join!(gbp.body, "\n");
                 format!("while {}; do\n{}\ndone", guard, body)
             }
-            _ => String::from("UNSUPPORTED"),
+            ast::CompoundCommandKind::Until(gbp) => {
+                let guard = join!(gbp.guard, "; ");
+                let body = join!(gbp.body, "\n");
+                format!("until {}; do\n{}\ndone", guard, body)
+            }
+            ast::CompoundCommandKind::If {
+                conditionals,
+                else_branch,
+            } => {
+                // conditionals is a list of all conditions,actions of a if/elif list - we proceed
+                // by formatting them all the same way - as a regular if - and then join them using
+                // the "el" delimiter, transforming all but the first member into elifs
+                let cases = conditionals
+                    .iter()
+                    .map(|gbp| {
+                        let guard = join!(gbp.guard, "; ");
+                        let body = join!(gbp.body, "\n");
+                        format!("if {}; then\n{}", guard, body)
+                    })
+                    .collect::<Vec<String>>();
+
+                if let Some(statements) = else_branch {
+                    format!(
+                        "{}\nelse\n{}\nfi",
+                        join!(cases, "\nel"),
+                        join!(statements, "\n")
+                    )
+                } else {
+                    format!("{}\nfi", join!(cases, "\nel"))
+                }
+            }
+            ast::CompoundCommandKind::For { var, words, body } => {
+                if let Some(word_v) = words {
+                    format!(
+                        "for {} in {}; do\n{}\ndone",
+                        var.into_string(),
+                        join!(word_v, " "),
+                        join!(body, "\n")
+                    )
+                } else {
+                    format!("for {}; do\n{}\ndone", var.into_string(), join!(body, "\n"))
+                }
+            }
+            ast::CompoundCommandKind::Case { word, arms } => {
+                format!("case {} in {}\nesac", word.into_string(), join!(arms, "\n"))
+            }
         }
+    }
+}
+
+impl<W: Serializable<String>, C: Serializable<String>> Serializable<String>
+    for ast::PatternBodyPair<W, C>
+{
+    fn into_string(&self) -> String {
+        format!(
+            "{})\n{}\n;;",
+            join!(self.patterns, "|"),
+            join!(self.body, "\n")
+        )
     }
 }
 
