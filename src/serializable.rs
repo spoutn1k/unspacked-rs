@@ -82,6 +82,16 @@ macro_rules! substitution {
     };
 }
 
+macro_rules! join {
+    // Iter over vec, serialize contents and join using the provided separator
+    ($vec:expr, $sep:expr) => {
+        $vec.iter()
+            .map(|x| x.into_string())
+            .collect::<Vec<String>>()
+            .join($sep)
+    };
+}
+
 impl<
         P: Serializable<String>,
         W: Serializable<String>,
@@ -92,13 +102,7 @@ impl<
     fn into_string(&self) -> String {
         match self {
             ast::ParameterSubstitution::Command(vec) => {
-                let cmd = vec
-                    .iter()
-                    .map(|c| c.into_string())
-                    .collect::<Vec<String>>()
-                    .join(" ");
-
-                format!("$({})", cmd)
+                format!("$({})", join!(vec, " "))
             }
             ast::ParameterSubstitution::Len(ast::Parameter::Var(value)) => {
                 format!("${{#{}}}", value.into_string())
@@ -255,11 +259,7 @@ impl<S: Serializable<String>> Serializable<String> for ast::ComplexWord<S> {
     fn into_string(&self) -> String {
         match self {
             ast::ComplexWord::Single(w) => w.into_string(),
-            ast::ComplexWord::Concat(vec) => vec
-                .iter()
-                .map(|w| w.into_string())
-                .collect::<Vec<String>>()
-                .join(""),
+            ast::ComplexWord::Concat(vec) => join!(vec, ""),
         }
     }
 }
@@ -268,14 +268,7 @@ impl<L: Serializable<String>, W: Serializable<String>> Serializable<String> for 
     fn into_string(&self) -> String {
         match self {
             ast::Word::Simple(w) => w.into_string(),
-            ast::Word::DoubleQuoted(w) => {
-                let contents = w
-                    .iter()
-                    .map(|x| x.into_string())
-                    .collect::<Vec<String>>()
-                    .join("");
-                format!("\"{}\"", contents)
-            }
+            ast::Word::DoubleQuoted(w) => format!("\"{}\"", join!(w, "")),
             ast::Word::SingleQuoted(w) => w.into_string(),
         }
     }
@@ -292,17 +285,72 @@ impl<V: Serializable<String>, W: Serializable<String>, C: Serializable<String>> 
 {
     fn into_string(&self) -> String {
         match self {
-            ast::CompoundCommandKind::Brace(vec) => {
-                let commands = vec
-                    .iter()
-                    .map(|x| x.into_string())
-                    .collect::<Vec<String>>()
-                    .join("; ");
-
-                format!("{{ {}; }}", commands)
+            ast::CompoundCommandKind::Brace(vec) => format!("{{ {}; }}", join!(vec, "; ")),
+            ast::CompoundCommandKind::Subshell(vec) => format!("( {} )", join!(vec, "; ")),
+            ast::CompoundCommandKind::While(gbp) => {
+                let guard = join!(gbp.guard, "; ");
+                let body = join!(gbp.body, "\n");
+                format!("while {}; do\n{}\ndone", guard, body)
             }
-            _ => String::from("UNSUPPORTED"),
+            ast::CompoundCommandKind::Until(gbp) => {
+                let guard = join!(gbp.guard, "; ");
+                let body = join!(gbp.body, "\n");
+                format!("until {}; do\n{}\ndone", guard, body)
+            }
+            ast::CompoundCommandKind::If {
+                conditionals,
+                else_branch,
+            } => {
+                // conditionals is a list of all conditions,actions of a if/elif list - we proceed
+                // by formatting them all the same way - as a regular if - and then join them using
+                // the "el" delimiter, transforming all but the first member into elifs
+                let cases = conditionals
+                    .iter()
+                    .map(|gbp| {
+                        let guard = join!(gbp.guard, "; ");
+                        let body = join!(gbp.body, "\n");
+                        format!("if {}; then\n{}", guard, body)
+                    })
+                    .collect::<Vec<String>>();
+
+                if let Some(statements) = else_branch {
+                    format!(
+                        "{}\nelse\n{}\nfi",
+                        join!(cases, "\nel"),
+                        join!(statements, "\n")
+                    )
+                } else {
+                    format!("{}\nfi", join!(cases, "\nel"))
+                }
+            }
+            ast::CompoundCommandKind::For { var, words, body } => {
+                if let Some(word_v) = words {
+                    format!(
+                        "for {} in {}; do\n{}\ndone",
+                        var.into_string(),
+                        join!(word_v, " "),
+                        join!(body, "\n")
+                    )
+                } else {
+                    format!("for {}; do\n{}\ndone", var.into_string(), join!(body, "\n"))
+                }
+            }
+            ast::CompoundCommandKind::Case { word, arms } => {
+                format!("case {} in {}\nesac", word.into_string(), join!(arms, "\n"))
+            }
         }
+    }
+}
+
+impl<W: Serializable<String>, C: Serializable<String>> Serializable<String>
+    for ast::PatternBodyPair<W, C>
+{
+    fn into_string(&self) -> String {
+        format!(
+            "{})\n{}\n;;",
+            join!(self.patterns, "|"),
+            join!(self.body, "\n")
+        )
     }
 }
 
@@ -312,12 +360,7 @@ impl<T: Serializable<String>, R: Serializable<String>> Serializable<String>
     fn into_string(&self) -> String {
         let compound = self.kind.into_string();
 
-        let io = self
-            .io
-            .iter()
-            .map(|x| x.into_string())
-            .collect::<Vec<String>>()
-            .join("  ");
+        let io = join!(self.io, " ");
 
         vec![compound, io]
             .into_iter()
@@ -331,19 +374,8 @@ impl<L: Serializable<String>, W: Serializable<String>, R: Serializable<String>> 
     for ast::SimpleCommand<L, W, R>
 {
     fn into_string(&self) -> String {
-        let roev = self
-            .redirects_or_env_vars
-            .iter()
-            .map(|roev| roev.into_string())
-            .collect::<Vec<String>>()
-            .join(" ");
-
-        let rocw = self
-            .redirects_or_cmd_words
-            .iter()
-            .map(|rocw| rocw.into_string())
-            .collect::<Vec<String>>()
-            .join(" ");
+        let roev = join!(self.redirects_or_env_vars, " ");
+        let rocw = join!(self.redirects_or_cmd_words, " ");
 
         // The following adds a space only when necessary
         vec![roev, rocw]
@@ -358,11 +390,7 @@ impl<T: Serializable<String>> Serializable<String> for ast::ListableCommand<T> {
     fn into_string(&self) -> String {
         match self {
             ast::ListableCommand::Single(cmd) => cmd.into_string(),
-            ast::ListableCommand::Pipe(_, cmds) => cmds
-                .into_iter()
-                .map(|cmd| cmd.into_string())
-                .collect::<Vec<String>>()
-                .join(" "),
+            ast::ListableCommand::Pipe(_, cmds) => join!(cmds, " "),
         }
     }
 }
@@ -382,13 +410,7 @@ impl<N, S: Serializable<String>, C: Serializable<String>, F> Serializable<String
 impl<T: Serializable<String>> Serializable<String> for ast::AndOrList<T> {
     fn into_string(&self) -> String {
         let first = self.first.into_string();
-
-        let rest = self
-            .rest
-            .iter()
-            .map(|cmd| cmd.into_string())
-            .collect::<Vec<String>>()
-            .join(" ");
+        let rest = join!(self.rest, " ");
 
         // The following adds a space only when necessary
         vec![first, rest]

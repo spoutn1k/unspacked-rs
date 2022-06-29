@@ -23,6 +23,9 @@ if [ $? -ne 0 -o -z $(which spack) ] ; then
     exit 1
 fi
 
+# Avoid contamination by unloading all packages first
+spack unload
+
 # Output file; will then be sourced and overwrite this file
 BUFFER=$(mktemp --suffix=.sh -q)
 BUFFER=${{BUFFER:=.unspacked.sh.tmp}}
@@ -38,6 +41,9 @@ THIS=${{BASH_SOURCE[0]}}
 	}}
 
 EOF
+
+# Once the call has been staged, execute it for the next staging to be in a
+# genuine environment
 $(echo "$@" | sed -e 's:--sh::g')
 }};
 
