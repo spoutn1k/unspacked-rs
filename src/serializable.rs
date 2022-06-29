@@ -141,7 +141,87 @@ impl<
 impl<S: Serializable<String>> Serializable<String> for ast::Arithmetic<S> {
     fn into_string(&self) -> String {
         match self {
-            _ => String::from("UNSUPPORTED"),
+            ast::Arithmetic::Var(value) => value.into_string(),
+            ast::Arithmetic::Literal(value) => format!("{}", value),
+            ast::Arithmetic::Pow(lhs, rhs) => {
+                format!("{} ** {}", lhs.into_string(), rhs.into_string())
+            }
+            ast::Arithmetic::PostIncr(value) => format!("{}++", value.into_string()),
+            ast::Arithmetic::PostDecr(value) => format!("{}--", value.into_string()),
+            ast::Arithmetic::PreIncr(value) => format!("++{}", value.into_string()),
+            ast::Arithmetic::PreDecr(value) => format!("--{}", value.into_string()),
+            ast::Arithmetic::UnaryPlus(value) => format!("+({})", value.into_string()),
+            ast::Arithmetic::UnaryMinus(value) => format!("-({})", value.into_string()),
+            ast::Arithmetic::LogicalNot(value) => format!("!{}", value.into_string()),
+            ast::Arithmetic::BitwiseNot(value) => format!("~{}", value.into_string()),
+            ast::Arithmetic::Mult(lhs, rhs) => {
+                format!("{} * {}", lhs.into_string(), rhs.into_string())
+            }
+            ast::Arithmetic::Div(lhs, rhs) => {
+                format!("{} / {}", lhs.into_string(), rhs.into_string())
+            }
+            ast::Arithmetic::Modulo(lhs, rhs) => {
+                format!("{} % {}", lhs.into_string(), rhs.into_string())
+            }
+            ast::Arithmetic::Add(lhs, rhs) => {
+                format!("{} + {}", lhs.into_string(), rhs.into_string())
+            }
+            ast::Arithmetic::Sub(lhs, rhs) => {
+                format!("{} - {}", lhs.into_string(), rhs.into_string())
+            }
+            ast::Arithmetic::ShiftLeft(lhs, rhs) => {
+                format!("{} << {}", lhs.into_string(), rhs.into_string())
+            }
+            ast::Arithmetic::ShiftRight(lhs, rhs) => {
+                format!("{} >> {}", lhs.into_string(), rhs.into_string())
+            }
+            ast::Arithmetic::Less(lhs, rhs) => {
+                format!("{} < {}", lhs.into_string(), rhs.into_string())
+            }
+            ast::Arithmetic::LessEq(lhs, rhs) => {
+                format!("{} <= {}", lhs.into_string(), rhs.into_string())
+            }
+            ast::Arithmetic::Great(lhs, rhs) => {
+                format!("{} > {}", lhs.into_string(), rhs.into_string())
+            }
+            ast::Arithmetic::GreatEq(lhs, rhs) => {
+                format!("{} >= {}", lhs.into_string(), rhs.into_string())
+            }
+            ast::Arithmetic::Eq(lhs, rhs) => {
+                format!("{} == {}", lhs.into_string(), rhs.into_string())
+            }
+            ast::Arithmetic::NotEq(lhs, rhs) => {
+                format!("{} != {}", lhs.into_string(), rhs.into_string())
+            }
+            ast::Arithmetic::BitwiseAnd(lhs, rhs) => {
+                format!("{} & {}", lhs.into_string(), rhs.into_string())
+            }
+            ast::Arithmetic::BitwiseXor(lhs, rhs) => {
+                format!("{} ^ {}", lhs.into_string(), rhs.into_string())
+            }
+            ast::Arithmetic::BitwiseOr(lhs, rhs) => {
+                format!("{} | {}", lhs.into_string(), rhs.into_string())
+            }
+            ast::Arithmetic::LogicalAnd(lhs, rhs) => {
+                format!("{} && {}", lhs.into_string(), rhs.into_string())
+            }
+            ast::Arithmetic::LogicalOr(lhs, rhs) => {
+                format!("{} || {}", lhs.into_string(), rhs.into_string())
+            }
+            ast::Arithmetic::Ternary(cond, lhs, rhs) => {
+                format!(
+                    "{} ? {} : {}",
+                    cond.into_string(),
+                    lhs.into_string(),
+                    rhs.into_string()
+                )
+            }
+            ast::Arithmetic::Assign(ident, value) => {
+                format!("{} = {}", ident.into_string(), value.into_string(),)
+            }
+            ast::Arithmetic::Sequence(values) => {
+                join!(values, ", ")
+            }
         }
     }
 }
@@ -434,6 +514,271 @@ mod test {
         assert_eq!(
             ast::Parameter::<String>::Var(String::from("test")).into_string(),
             String::from("$test")
+        );
+    }
+
+    #[test]
+    fn test_serialize_arithmetic() {
+        assert_eq!(
+            ast::Arithmetic::<String>::Var(String::from("test")).into_string(),
+            String::from("test")
+        );
+
+        assert_eq!(
+            ast::Arithmetic::<String>::Literal(1).into_string(),
+            format!("{}", 1)
+        );
+
+        assert_eq!(
+            ast::Arithmetic::<String>::Pow(
+                Box::new(ast::Arithmetic::Literal(2)),
+                Box::new(ast::Arithmetic::Literal(16))
+            )
+            .into_string(),
+            format!("{} ** {}", 2, 16)
+        );
+
+        assert_eq!(
+            ast::Arithmetic::PostIncr(String::from("1")).into_string(),
+            format!("{}++", 1)
+        );
+
+        assert_eq!(
+            ast::Arithmetic::PostDecr(String::from("1")).into_string(),
+            format!("{}--", 1)
+        );
+
+        assert_eq!(
+            ast::Arithmetic::PreIncr(String::from("1")).into_string(),
+            format!("++{}", 1)
+        );
+
+        assert_eq!(
+            ast::Arithmetic::PreDecr(String::from("1")).into_string(),
+            format!("--{}", 1)
+        );
+
+        assert_eq!(
+            ast::Arithmetic::<String>::UnaryPlus(Box::new(ast::Arithmetic::Var(String::from(
+                "test"
+            ))))
+            .into_string(),
+            format!("+({})", "test")
+        );
+
+        assert_eq!(
+            ast::Arithmetic::<String>::UnaryMinus(Box::new(ast::Arithmetic::Var(String::from(
+                "test"
+            ))))
+            .into_string(),
+            format!("-({})", "test")
+        );
+
+        assert_eq!(
+            ast::Arithmetic::<String>::LogicalNot(Box::new(ast::Arithmetic::Var(String::from(
+                "test"
+            ))))
+            .into_string(),
+            format!("!{}", "test")
+        );
+
+        assert_eq!(
+            ast::Arithmetic::<String>::BitwiseNot(Box::new(ast::Arithmetic::Var(String::from(
+                "test"
+            ))))
+            .into_string(),
+            format!("~{}", "test")
+        );
+
+        assert_eq!(
+            ast::Arithmetic::<String>::Mult(
+                Box::new(ast::Arithmetic::Var(String::from("lhs"))),
+                Box::new(ast::Arithmetic::Var(String::from("rhs")))
+            )
+            .into_string(),
+            format!("{} * {}", "lhs", "rhs")
+        );
+
+        assert_eq!(
+            ast::Arithmetic::<String>::Div(
+                Box::new(ast::Arithmetic::Var(String::from("lhs"))),
+                Box::new(ast::Arithmetic::Var(String::from("rhs")))
+            )
+            .into_string(),
+            format!("{} / {}", "lhs", "rhs")
+        );
+
+        assert_eq!(
+            ast::Arithmetic::<String>::Modulo(
+                Box::new(ast::Arithmetic::Var(String::from("lhs"))),
+                Box::new(ast::Arithmetic::Var(String::from("rhs")))
+            )
+            .into_string(),
+            format!("{} % {}", "lhs", "rhs")
+        );
+
+        assert_eq!(
+            ast::Arithmetic::<String>::Add(
+                Box::new(ast::Arithmetic::Var(String::from("lhs"))),
+                Box::new(ast::Arithmetic::Var(String::from("rhs")))
+            )
+            .into_string(),
+            format!("{} + {}", "lhs", "rhs")
+        );
+
+        assert_eq!(
+            ast::Arithmetic::<String>::Sub(
+                Box::new(ast::Arithmetic::Var(String::from("lhs"))),
+                Box::new(ast::Arithmetic::Var(String::from("rhs")))
+            )
+            .into_string(),
+            format!("{} - {}", "lhs", "rhs")
+        );
+
+        assert_eq!(
+            ast::Arithmetic::<String>::ShiftLeft(
+                Box::new(ast::Arithmetic::Var(String::from("lhs"))),
+                Box::new(ast::Arithmetic::Var(String::from("rhs")))
+            )
+            .into_string(),
+            format!("{} << {}", "lhs", "rhs")
+        );
+
+        assert_eq!(
+            ast::Arithmetic::<String>::ShiftRight(
+                Box::new(ast::Arithmetic::Var(String::from("lhs"))),
+                Box::new(ast::Arithmetic::Var(String::from("rhs")))
+            )
+            .into_string(),
+            format!("{} >> {}", "lhs", "rhs")
+        );
+
+        assert_eq!(
+            ast::Arithmetic::<String>::Less(
+                Box::new(ast::Arithmetic::Var(String::from("lhs"))),
+                Box::new(ast::Arithmetic::Var(String::from("rhs")))
+            )
+            .into_string(),
+            format!("{} < {}", "lhs", "rhs")
+        );
+
+        assert_eq!(
+            ast::Arithmetic::<String>::Great(
+                Box::new(ast::Arithmetic::Var(String::from("lhs"))),
+                Box::new(ast::Arithmetic::Var(String::from("rhs")))
+            )
+            .into_string(),
+            format!("{} > {}", "lhs", "rhs")
+        );
+
+        assert_eq!(
+            ast::Arithmetic::<String>::LessEq(
+                Box::new(ast::Arithmetic::Var(String::from("lhs"))),
+                Box::new(ast::Arithmetic::Var(String::from("rhs")))
+            )
+            .into_string(),
+            format!("{} <= {}", "lhs", "rhs")
+        );
+
+        assert_eq!(
+            ast::Arithmetic::<String>::GreatEq(
+                Box::new(ast::Arithmetic::Var(String::from("lhs"))),
+                Box::new(ast::Arithmetic::Var(String::from("rhs")))
+            )
+            .into_string(),
+            format!("{} >= {}", "lhs", "rhs")
+        );
+
+        assert_eq!(
+            ast::Arithmetic::<String>::Eq(
+                Box::new(ast::Arithmetic::Var(String::from("lhs"))),
+                Box::new(ast::Arithmetic::Var(String::from("rhs")))
+            )
+            .into_string(),
+            format!("{} == {}", "lhs", "rhs")
+        );
+
+        assert_eq!(
+            ast::Arithmetic::<String>::NotEq(
+                Box::new(ast::Arithmetic::Var(String::from("lhs"))),
+                Box::new(ast::Arithmetic::Var(String::from("rhs")))
+            )
+            .into_string(),
+            format!("{} != {}", "lhs", "rhs")
+        );
+
+        assert_eq!(
+            ast::Arithmetic::<String>::BitwiseAnd(
+                Box::new(ast::Arithmetic::Var(String::from("lhs"))),
+                Box::new(ast::Arithmetic::Var(String::from("rhs")))
+            )
+            .into_string(),
+            format!("{} & {}", "lhs", "rhs")
+        );
+
+        assert_eq!(
+            ast::Arithmetic::<String>::BitwiseXor(
+                Box::new(ast::Arithmetic::Var(String::from("lhs"))),
+                Box::new(ast::Arithmetic::Var(String::from("rhs")))
+            )
+            .into_string(),
+            format!("{} ^ {}", "lhs", "rhs")
+        );
+
+        assert_eq!(
+            ast::Arithmetic::<String>::BitwiseOr(
+                Box::new(ast::Arithmetic::Var(String::from("lhs"))),
+                Box::new(ast::Arithmetic::Var(String::from("rhs")))
+            )
+            .into_string(),
+            format!("{} | {}", "lhs", "rhs")
+        );
+
+        assert_eq!(
+            ast::Arithmetic::<String>::LogicalAnd(
+                Box::new(ast::Arithmetic::Var(String::from("lhs"))),
+                Box::new(ast::Arithmetic::Var(String::from("rhs")))
+            )
+            .into_string(),
+            format!("{} && {}", "lhs", "rhs")
+        );
+
+        assert_eq!(
+            ast::Arithmetic::<String>::LogicalOr(
+                Box::new(ast::Arithmetic::Var(String::from("lhs"))),
+                Box::new(ast::Arithmetic::Var(String::from("rhs")))
+            )
+            .into_string(),
+            format!("{} || {}", "lhs", "rhs")
+        );
+
+        assert_eq!(
+            ast::Arithmetic::<String>::Ternary(
+                Box::new(ast::Arithmetic::Var(String::from("cond"))),
+                Box::new(ast::Arithmetic::Var(String::from("lhs"))),
+                Box::new(ast::Arithmetic::Var(String::from("rhs")))
+            )
+            .into_string(),
+            format!("{} ? {} : {}", "cond", "lhs", "rhs")
+        );
+
+        assert_eq!(
+            ast::Arithmetic::<String>::Assign(
+                String::from("test"),
+                Box::new(ast::Arithmetic::Literal(1))
+            )
+            .into_string(),
+            format!("{} = {}", "test", 1)
+        );
+
+        assert_eq!(
+            ast::Arithmetic::<String>::Sequence(vec![
+                ast::Arithmetic::Literal(1),
+                ast::Arithmetic::Literal(2),
+                ast::Arithmetic::Literal(3)
+            ])
+            .into_string(),
+            String::from("1, 2, 3")
         );
     }
 }
