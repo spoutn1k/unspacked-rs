@@ -1,4 +1,5 @@
 use conch_parser::ast;
+use std::rc::Rc;
 
 pub trait Serializable<S> {
     fn into_string(&self) -> S;
@@ -10,7 +11,25 @@ impl Serializable<String> for String {
     }
 }
 
+impl<B: Serializable<String>> Serializable<String> for Box<B> {
+    fn into_string(&self) -> String {
+        (**self).into_string()
+    }
+}
+
+impl<B: Serializable<String>> Serializable<String> for Rc<B> {
+    fn into_string(&self) -> String {
+        (**self).into_string()
+    }
+}
+
 impl<S: Serializable<String>> Serializable<String> for ast::TopLevelCommand<S> {
+    fn into_string(&self) -> String {
+        self.0.into_string()
+    }
+}
+
+impl<S: Serializable<String>> Serializable<String> for ast::TopLevelWord<S> {
     fn into_string(&self) -> String {
         self.0.into_string()
     }
@@ -274,12 +293,6 @@ impl<L: Serializable<String>, W: Serializable<String>> Serializable<String> for 
     }
 }
 
-impl<S: Serializable<String>> Serializable<String> for ast::TopLevelWord<S> {
-    fn into_string(&self) -> String {
-        self.0.into_string()
-    }
-}
-
 impl<V: Serializable<String>, W: Serializable<String>, C: Serializable<String>> Serializable<String>
     for ast::CompoundCommandKind<V, W, C>
 {
@@ -395,14 +408,24 @@ impl<T: Serializable<String>> Serializable<String> for ast::ListableCommand<T> {
     }
 }
 
-impl<N, S: Serializable<String>, C: Serializable<String>, F> Serializable<String>
-    for ast::PipeableCommand<N, S, C, F>
+impl<
+        N: Serializable<String>,
+        S: Serializable<String>,
+        C: Serializable<String>,
+        F: Serializable<String>,
+    > Serializable<String> for ast::PipeableCommand<N, S, C, F>
 {
     fn into_string(&self) -> String {
         match self {
             ast::PipeableCommand::Simple(cmd) => cmd.into_string(),
             ast::PipeableCommand::Compound(cmd) => cmd.into_string(),
-            ast::PipeableCommand::FunctionDef(_, _) => String::from("UNSUPPORTED"),
+            ast::PipeableCommand::FunctionDef(name, body) => {
+                format!(
+                    "function {}() {{\n{}\n}}",
+                    name.into_string(),
+                    body.into_string()
+                )
+            }
         }
     }
 }
@@ -479,12 +502,6 @@ impl<R: Serializable<String>, V: Serializable<String>, W: Serializable<String>> 
             ast::RedirectOrEnvVar::EnvVar(k, None) => format!("{}=", k.into_string()),
             ast::RedirectOrEnvVar::Redirect(r) => r.into_string(),
         }
-    }
-}
-
-impl<B: Serializable<String>> Serializable<String> for Box<B> {
-    fn into_string(&self) -> String {
-        (**self).into_string()
     }
 }
 
