@@ -475,7 +475,10 @@ impl<T: Serializable<String>> Serializable<String> for ast::Redirect<T> {
                 Some(value) => format!("{}>& {}", value, rest.into_string()),
                 None => format!(">& {}", rest.into_string()),
             },
-            _ => String::from("UNSUPPORTED"),
+            ast::Redirect::Heredoc(fd_option, rest) => match fd_option {
+                Some(value) => format!("{} in {}", rest.into_string(), value),
+                None => format!("<<EOF\n{}\nEOF", rest.into_string()),
+            },
         }
     }
 }
