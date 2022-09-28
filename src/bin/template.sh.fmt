@@ -18,7 +18,7 @@ UNSPACKING
 {}
 
 # Check that spack is either loaded or available
-if [ $? -ne 0 -o -z $(which spack) ] ; then
+if [ $? -ne 0 ] || ! type spack &>/dev/null ; then
     echo "spack not found, aborting script creation" >&2
     exit 1
 fi
